@@ -46,3 +46,20 @@
 3. 记录命中与引用情况
 4. 统计 Recall@K、nDCG、引用正确率
 5. 输出评测报告（表格 + 结论）
+## 7. 评测脚本文件结构（建议）
+
+```
+/eval
+  /datasets
+    sample.csv
+    sample.json
+  /runs
+    run_2026-01-23.json
+  eval_runner.py (或 Java 版本)
+  README.md
+```
+
+### 7.1 执行说明（概要）
+- 读取 datasets 中的样本
+- 调用查询 API
+- 统计指标并输出 runs 结果

@@ -415,3 +415,51 @@
 3. 生成 chunk + metadata
 4. 写入向量与 FTS
 5. 记录索引版本
+## 18. 数据库建表 SQL 草案（PostgreSQL）
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  source TEXT,
+  title TEXT,
+  mime_type TEXT,
+  version TEXT,
+  checksum TEXT,
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS chunks (
+  id TEXT PRIMARY KEY,
+  document_id TEXT REFERENCES documents(id) ON DELETE CASCADE,
+  chunk_index INT,
+  text TEXT,
+  start_offset INT,
+  end_offset INT,
+  page INT,
+  hash TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS chunk_embeddings (
+  chunk_id TEXT PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
+  embedding VECTOR(1536),
+  model_id TEXT,
+  dim INT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS chunk_fts (
+  chunk_id TEXT PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
+  tsv TSVECTOR
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
+-- 向量索引示例（根据 pgvector 版本选择）
+-- CREATE INDEX idx_chunk_embeddings_vec ON chunk_embeddings USING ivfflat (embedding vector_cosine_ops);
+```
