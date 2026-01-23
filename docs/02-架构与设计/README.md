@@ -556,3 +556,20 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
 - 固定模型与参数，保证评测可复现
 - 引用校验：关键断言需可对齐
 - 无法引用时走降级策略（仅检索结果/提示）
+## 24. 对话与架构图（文字版）
+
+### 24.1 对话流程
+1. 用户发起问题
+2. 读取 Redis 短期记忆（最近 N 轮摘要）
+3. 组装增强 query
+4. 进入混合检索与生成流程
+5. 写回本轮摘要到 Redis
+
+### 24.2 架构流程（文本版）
+- 用户/客户端
+  → API 层（/v1/query, /v1/query:stream）
+  → 短期记忆（Redis）
+  → 检索层（FTS + 向量）
+  → 生成层（LLM）
+  → 引用组装
+  → 响应返回
