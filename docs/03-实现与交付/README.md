@@ -148,3 +148,15 @@
 ### 7.9 验收与评测
 - 子任务：小样本评测
   - 验收：生成评测报告（表格）
+## 8. 里程碑验收标准（Acceptance Criteria）
+
+### M1（最小闭环）
+- docker compose 一键启动成功
+- ingest 一个 md 文件 → chunks 入库
+- search topK 返回可解释结果（含 docId + snippet）
+- answer 返回必须带 citations（>=1）
+
+### M2（DeepSearch）
+- hybrid 相比 vector-only 在测试集 recall@10 提升
+- 增量索引可用（修改文件不全量重建）
+- rerank 组件可插拔（默认 no-op）

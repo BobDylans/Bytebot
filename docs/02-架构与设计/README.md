@@ -664,3 +664,218 @@ public interface QueryOrchestrator {
 - **实现可替换**：通过 Spring Bean + 配置选择具体实现
 - **策略可热切换**：切分/融合/OCR 以策略注入
 - **适配器隔离**：LLM/Embedding/OCR 供应商替换不影响核心逻辑
+## 27. 接口契约（API Contract）
+
+### 27.1 数据集
+
+**POST /datasets**
+```json
+{
+  "name": "project-docs",
+  "description": "项目文档数据集"
+}
+```
+**响应**
+```json
+{
+  "id": "ds_123",
+  "name": "project-docs",
+  "description": "项目文档数据集",
+  "created_at": "2026-01-23T08:00:00Z"
+}
+```
+
+**GET /datasets**
+**响应**
+```json
+{
+  "items": [
+    {"id": "ds_123", "name": "project-docs", "description": "项目文档数据集"}
+  ]
+}
+```
+
+### 27.2 导入
+
+**POST /ingest**（三选一：file / path / url）
+```json
+{
+  "dataset_id": "ds_123",
+  "source": {"type": "path", "value": "D:/docs"},
+  "tenant_id": "t1"
+}
+```
+**响应**
+```json
+{
+  "job_id": "ing_001",
+  "status": "PENDING"
+}
+```
+
+### 27.3 检索
+
+**POST /search**（只检索）
+```json
+{
+  "dataset_id": "ds_123",
+  "query": "MVP 范围",
+  "top_k": 10
+}
+```
+**响应**
+```json
+{
+  "hits": [
+    {
+      "docId": "doc_1",
+      "chunkId": "chk_1",
+      "offset": {"start": 120, "end": 240},
+      "snippet": "MVP 包含文档导入...",
+      "score": 0.82
+    }
+  ]
+}
+```
+
+### 27.4 生成
+
+**POST /answer**（检索+生成）
+```json
+{
+  "dataset_id": "ds_123",
+  "query": "MVP 范围是什么？",
+  "top_k": 8
+}
+```
+**响应**
+```json
+{
+  "answer": "MVP 包含导入、混检与引用回答...",
+  "citations": [
+    {
+      "docId": "doc_1",
+      "chunkId": "chk_1",
+      "offset": {"start": 120, "end": 240},
+      "snippet": "MVP 包含文档导入...",
+      "score": 0.82
+    }
+  ]
+}
+```
+
+### 27.5 文档与 Chunk 调试
+
+**GET /documents/{id}**
+```json
+{
+  "id": "doc_1",
+  "dataset_id": "ds_123",
+  "source_uri": "file:///D:/docs/a.md",
+  "checksum": "sha256:...",
+  "status": "INDEXED",
+  "created_at": "2026-01-23T08:00:00Z"
+}
+```
+
+**GET /chunks?docId=doc_1**
+```json
+{
+  "items": [
+    {"chunkId": "chk_1", "chunk_index": 0, "snippet": "...", "offset": {"start": 0, "end": 120}}
+  ]
+}
+```
+
+### 27.6 错误码约定
+- 400：参数错误（E_QUERY_INVALID）
+- 401：未授权（E_UNAUTHORIZED）
+- 404：资源不存在（E_NOT_FOUND）
+- 429：限流（E_RATE_LIMITED）
+- 500：服务错误（E_INTERNAL）
+
+### 27.7 幂等规则
+- `doc_hash` 相同：默认 **skip**（不重复写入）
+- `doc_hash` 相同但内容更新：视为 **update**（触发增量重建）
+
+### 27.8 citations 结构统一
+- 字段：`docId`、`chunkId`、`offset`、`snippet`、`score`
+## 28. 数据模型（Data Model）+ 索引策略
+
+### 28.1 表结构（最小集）
+**datasets**
+- id (PK)
+- name (unique)
+- description
+- created_at
+
+**documents**
+- id (PK)
+- dataset_id (FK)
+- source_uri
+- checksum (unique per dataset)
+- status
+- created_at
+
+**chunks**
+- id (PK)
+- doc_id (FK)
+- chunk_index
+- content
+- char_start / char_end
+- chunk_hash (unique per doc)
+
+**ingestion_jobs**
+- id (PK)
+- dataset_id
+- status
+- error_message
+- elapsed_ms
+- retry_count
+- created_at
+
+### 28.2 向量存储
+- 方式：`chunk_embeddings` 表（推荐）
+- 理由：向量与内容解耦，便于重建
+
+### 28.3 向量索引
+- pgvector：`ivfflat`（MVP） → 后续可选 `hnsw`
+
+### 28.4 文本检索索引
+- `tsvector` + GIN（Hybrid）
+## 29. 检索策略（Retrieval & Ranking）
+
+### 29.1 默认参数
+- chunk_size = 800
+- overlap = 120
+- vector_topK = 50
+- text_topK = 50
+- rerank_candidates = 50 → top10
+
+### 29.2 融合公式
+- 归一化后：`score = α * score_vector + (1-α) * score_text`
+- 默认 α = 0.6
+
+### 29.3 上下文拼装
+- 最大 token：4k（MVP）
+- 去重：相邻 chunk 合并
+- 限制：不超过 top10
+
+### 29.4 降级策略
+- rerank 超时 → 退回 hybrid
+- 向量库异常 → 退回纯文本检索
+## 30. 导入与增量索引（Ingestion & Incremental Indexing）
+
+### 30.1 去重策略
+- 文档去重：`doc_checksum`
+- chunk 去重：`chunk_hash`
+
+### 30.2 文档更新策略
+- 默认：局部重建（按 chunk 变更）
+- 无法对齐时：全量重建
+
+### 30.3 旧 chunk 处理
+- 推荐：软删（标记 invalid）
+
+### 30.4 状态机
+- PENDING → PARSING → CHUNKING → EMBEDDING → INDEXED / FAILED
