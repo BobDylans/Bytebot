@@ -583,3 +583,84 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
 | Pipeline/Chain | 导入→解析→切分→索引 | 可插拔流程 |
 | Repository | 数据访问层 | 解耦业务与存储 |
 | Decorator | LLM/检索器 | 日志/重试/限流横切能力 |
+## 26. 内部接口定义（可扩展）
+
+> 原则：接口稳定、实现可替换；通过配置注入策略与适配器。
+
+### 26.1 导入与解析
+```java
+public interface DocumentImporter {
+    ImportJob submit(ImportRequest req);
+    ImportStatus status(String importId);
+}
+
+public interface DocumentParser {
+    ParsedDocument parse(ImportSource source);
+    boolean supports(String mimeType);
+}
+
+public interface ParserFactory {
+    DocumentParser getParser(String mimeType);
+}
+```
+
+### 26.2 切分与索引
+```java
+public interface Chunker {
+    List<Chunk> chunk(ParsedDocument doc);
+}
+
+public interface Indexer {
+    void index(List<Chunk> chunks);
+    void deleteByDocument(String documentId);
+}
+```
+
+### 26.3 检索与融合
+```java
+public interface Retriever {
+    List<ScoredChunk> retrieve(QueryContext ctx, int topK);
+}
+
+public interface FusionStrategy {
+    List<ScoredChunk> fuse(List<ScoredChunk> vectorHits, List<ScoredChunk> ftsHits, int topN);
+}
+```
+
+### 26.4 生成与引用
+```java
+public interface AnswerGenerator {
+    Answer generate(QueryContext ctx, List<ScoredChunk> hits);
+}
+
+public interface CitationBuilder {
+    List<Citation> build(Answer answer, List<ScoredChunk> hits);
+}
+```
+
+### 26.5 外部适配器
+```java
+public interface LlmProvider {
+    LlmResult generate(String prompt);
+}
+
+public interface EmbeddingProvider {
+    float[] embed(String text);
+}
+
+public interface OcrProvider {
+    String extractText(byte[] pdfBytes, OcrOptions options);
+}
+```
+
+### 26.6 业务编排
+```java
+public interface QueryOrchestrator {
+    QueryResult handle(QueryRequest req);
+}
+```
+
+### 26.7 扩展性说明
+- **实现可替换**：通过 Spring Bean + 配置选择具体实现
+- **策略可热切换**：切分/融合/OCR 以策略注入
+- **适配器隔离**：LLM/Embedding/OCR 供应商替换不影响核心逻辑
