@@ -26,3 +26,7 @@
 - M1 任务拆解完成
 - MVP 闭环关键设计确定
 - 评测与基准结构明确
+## ADR 索引
+- ../adr/ADR-001-pgvector.md
+- ../adr/ADR-002-no-es.md
+- ../adr/ADR-003-sync-ingest.md
