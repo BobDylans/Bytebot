@@ -526,3 +526,33 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
 - `E_DB_CONNECTION_FAILED`：数据库连接失败
 - `E_DB_QUERY_FAILED`：数据库查询失败
 - `E_INDEX_WRITE_FAILED`：索引写入失败
+## 22. 一次完整调用流程（Query）
+
+1. **请求进入**：调用 `/v1/query` 或 `/v1/query:stream`，生成 `trace_id`
+2. **短期上下文**：读取会话最近 N 轮摘要（仅用于 query 增强）
+3. **检索准备**：query + 摘要 → 生成 embedding + FTS 查询
+4. **混合检索**：向量 TopK + FTS TopK 并行召回，线性融合去重
+5. **上下文组装**：抽取 TopN chunk 形成 prompt
+6. **生成回答**：调用 LLM，解析并生成引用
+7. **返回响应**：`answer` + `citations` + `trace_id`
+
+## 23. 短期记忆与长期记忆的工程化划分
+
+### 23.1 短期记忆（Session Memory）
+- 作用：对话连续性
+- 存储：内存缓存或临时表
+- 内容：最近 N 轮摘要、用户意图
+- 生命周期：会话级别，分钟到小时
+- 规则：仅用于 query 增强，不作为引用来源
+
+### 23.2 长期记忆（Knowledge Memory）
+- 作用：可检索、可引用、可追溯
+- 存储：documents/chunks + 索引
+- 内容：文档与 chunk（含版本、hash、元数据）
+- 生命周期：长期持久化，随版本更新
+- 规则：引用必须来源于长期记忆
+
+### 23.3 工程化原则
+- 固定模型与参数，保证评测可复现
+- 引用校验：关键断言需可对齐
+- 无法引用时走降级策略（仅检索结果/提示）
