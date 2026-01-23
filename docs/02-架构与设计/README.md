@@ -481,3 +481,40 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
 ### 19.4 失败处理
 - OCR 失败标记为 failed，不阻断导入任务
 - 在报告中显示 OCR 失败原因与文件清单
+## 20. 索引任务表结构与重试策略（持久化）
+
+### 20.1 表结构建议
+**index_jobs**
+- `id` (PK)
+- `document_id`
+- `version`
+- `status` (PENDING/RUNNING/FAILED/SUCCEEDED/RETRYING)
+- `attempts`
+- `error_code` / `error_message`
+- `created_at` / `updated_at`
+
+### 20.2 调度与重试
+- PENDING → RUNNING → SUCCEEDED
+- FAILED → RETRYING（指数退避 + 最大重试次数）
+- 超过重试次数后标记 FAILED 并记录原因
+
+### 20.3 幂等与一致性
+- `document_id + version` 保证幂等
+- 重试只处理失败的 chunk
+## 21. 引用对齐细则与降级策略
+
+### 21.1 对齐规则
+- 引用必须来自检索 TopN 的 chunk
+- 回答中的关键断言需至少对应 1 条引用
+- 同一断言优先选择分数最高的引用
+
+### 21.2 合并与去重
+- 相邻 chunk 来自同一文档与页码时合并
+- 去重后保持贡献度排序
+
+### 21.3 降级策略
+- 若引用无法对齐，返回“仅检索结果 + 引用”或提示无法引用
+- 引用不足时优先返回 1–3 条高置信引用
+
+### 21.4 可追溯性
+- 保留内部 `chunk_id` 与偏移信息（仅调试输出）
