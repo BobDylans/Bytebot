@@ -518,3 +518,11 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
 
 ### 21.4 可追溯性
 - 保留内部 `chunk_id` 与偏移信息（仅调试输出）
+### 14.4 错误码扩展（OCR/解析/DB）
+- `E_OCR_FAILED`：OCR 失败
+- `E_OCR_TIMEOUT`：OCR 超时
+- `E_PDF_PARSE_FAILED`：PDF 解析失败
+- `E_DOCX_PARSE_FAILED`：DOCX 解析失败
+- `E_DB_CONNECTION_FAILED`：数据库连接失败
+- `E_DB_QUERY_FAILED`：数据库查询失败
+- `E_INDEX_WRITE_FAILED`：索引写入失败
