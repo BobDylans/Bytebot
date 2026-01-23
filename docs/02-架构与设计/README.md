@@ -113,3 +113,34 @@
 ### 7.5 选择理由
 - 内容 / 向量 / FTS 解耦，便于扩展与重建索引
 - 在不引入 ES 的前提下，支持 MVP 的混合检索闭环
+## 8. API 设计（REST + SSE）
+
+### 8.1 端点清单（MVP）
+
+**导入**
+- `POST /v1/documents:import`：上传文件或目录列表，返回任务 id
+- `GET /v1/documents:import/{id}`：查询导入状态
+
+**检索问答**
+- `POST /v1/query`：非流式回答（答案 + 引用）
+- `POST /v1/query:stream`：SSE 流式回答
+  - 事件示例：`answer.delta`、`citations.final`
+
+**索引管理**
+- `POST /v1/index:build`：全量建索引
+- `POST /v1/index:refresh`：增量索引
+- `GET /v1/index:status`：索引版本与状态
+
+**系统**
+- `GET /v1/health`
+- `GET /v1/metrics`（可选）
+
+### 8.2 请求与响应（要点）
+- 请求通用字段：`tenant_id`、`source`（可选标签）
+- 响应通用字段：`trace_id`、`elapsed_ms`
+- 引用结构：`citations[]` 含 `document_id`、`chunk_id`、`page`、`score`
+
+### 8.3 SSE 事件建议
+- `answer.delta`：逐段答案增量
+- `citations.final`：最终引用列表
+- `error`：错误信息
