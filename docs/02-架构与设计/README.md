@@ -191,3 +191,107 @@
 - 任务耗时、失败率
 - 每次增量影响的 chunk 数
 - 索引版本与更新时间
+## 11. 接口字段与示例（JSON 为主）
+
+### 11.1 文档导入
+
+**请求** `POST /v1/documents:import`
+```json
+{
+  "tenant_id": "t1",
+  "source": "local",
+  "paths": ["/data/docs"],
+  "options": {
+    "recursive": true,
+    "mime_whitelist": ["application/pdf", "text/markdown", "text/plain"]
+  }
+}
+```
+
+**响应**
+```json
+{
+  "import_id": "imp_123",
+  "status": "PENDING",
+  "queued_at": "2026-01-23T08:00:00Z"
+}
+```
+
+### 11.2 导入状态
+
+**请求** `GET /v1/documents:import/{id}`
+
+**响应**
+```json
+{
+  "import_id": "imp_123",
+  "status": "SUCCEEDED",
+  "counts": {"documents": 120, "chunks": 3540},
+  "elapsed_ms": 18234
+}
+```
+
+### 11.3 检索问答（非流式）
+
+**请求** `POST /v1/query`
+```json
+{
+  "tenant_id": "t1",
+  "query": "这个项目的MVP范围是什么？",
+  "top_k": 8
+}
+```
+
+**响应**
+```json
+{
+  "answer": "MVP包含文档导入、混合检索和带引用回答...",
+  "citations": [
+    {
+      "document_id": "doc_9",
+      "chunk_id": "chk_77",
+      "page": 3,
+      "score": 0.82
+    }
+  ],
+  "trace_id": "tr_abc",
+  "elapsed_ms": 2450
+}
+```
+
+### 11.4 检索问答（SSE 流式）
+
+**请求** `POST /v1/query:stream`
+```json
+{
+  "tenant_id": "t1",
+  "query": "给出最小闭环的流程",
+  "top_k": 8
+}
+```
+
+**事件（示意）**
+```json
+{"event":"answer.delta","data":"最小闭环包含..."}
+```
+```json
+{"event":"citations.final","data":[{"document_id":"doc_2","chunk_id":"chk_11","page":1,"score":0.79}]}
+```
+
+### 11.5 索引管理
+
+**请求** `POST /v1/index:build`
+```json
+{
+  "tenant_id": "t1",
+  "mode": "full"
+}
+```
+
+**响应**
+```json
+{
+  "index_job_id": "idx_901",
+  "status": "RUNNING"
+}
+```
