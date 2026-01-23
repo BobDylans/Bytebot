@@ -1,0 +1,14 @@
+[
+  {
+    "query": "项目的MVP范围是什么？",
+    "expected_answer": "包含文档导入、混合检索、带引用回答",
+    "expected_citations": ["doc_1:page3", "doc_2:page1"],
+    "negative_citations": ["doc_9:page2"]
+  },
+  {
+    "query": "增量索引的触发方式有哪些？",
+    "expected_answer": "事件驱动 + 定时回退",
+    "expected_citations": ["doc_4:page2"],
+    "negative_citations": ["doc_7:page5"]
+  }
+]
