@@ -573,3 +573,13 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
   → 生成层（LLM）
   → 引用组装
   → 响应返回
+## 25. 设计模式建议（健壮性与可扩展性）
+
+| 模式 | 适用模块 | 用途 |
+| --- | --- | --- |
+| Strategy | 切分、检索融合、OCR 选择 | 便于替换策略与参数 |
+| Adapter | 外部 LLM/Embedding/OCR | 隔离厂商差异 |
+| Factory | 文档解析器 | 新增格式无需改调用方 |
+| Pipeline/Chain | 导入→解析→切分→索引 | 可插拔流程 |
+| Repository | 数据访问层 | 解耦业务与存储 |
+| Decorator | LLM/检索器 | 日志/重试/限流横切能力 |
