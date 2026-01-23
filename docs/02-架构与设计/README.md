@@ -144,3 +144,50 @@
 - `answer.delta`：逐段答案增量
 - `citations.final`：最终引用列表
 - `error`：错误信息
+## 9. 混合检索融合策略（线性可解释）
+
+### 9.1 召回与融合
+- 两路召回：FTS（关键词）与向量检索各取 TopK
+- 归一化：
+  - FTS：`ts_rank` 或 `ts_rank_cd` 归一化到 0–1
+  - 向量：`1 - distance` 或 cosine 相似度归一化到 0–1
+- 融合公式：`score = α * score_vector + (1-α) * score_fts`
+  - 默认 `α=0.6`（语义优先）
+
+### 9.2 排序与截断
+- 合并去重后按 `score` 排序
+- 取 TopN 进入生成阶段
+
+### 9.3 可解释性
+- 保留 `score_vector`、`score_fts` 与 `score_final`
+- MVP 阶段以 TopN 截断为主，少用硬阈值
+## 10. 增量索引任务流与状态机（事件 + 定时回退）
+
+### 10.1 触发策略
+- **事件驱动优先**：文件变更（新增/修改/删除）触发入队
+- **定时回退**：周期性扫描（如每日）修复漏触发与一致性问题
+
+### 10.2 任务流（M2 目标）
+1. **变更检测**：对文件计算 `checksum` 与 `version`
+2. **入队**：生成索引任务（document_id + version）
+3. **解析与切分**：生成 chunk + hash
+4. **差异计算**：对比旧 chunk hash，确定新增/更新/删除
+5. **索引更新**：
+   - 新增/更新：写入向量与 FTS
+   - 删除：标记失效或物理删除
+6. **完成与审计**：写入任务日志与统计指标
+
+### 10.3 状态机（索引任务）
+- `PENDING` → `RUNNING` → `SUCCEEDED`
+- `RUNNING` → `FAILED`（可重试）
+- `FAILED` → `RETRYING` → `SUCCEEDED`
+- `SUCCEEDED` → `VERIFIED`（可选一致性校验）
+
+### 10.4 幂等与一致性
+- 按 `document_id + version` 保证幂等
+- chunk 层以 `hash` 为准，避免重复写入
+
+### 10.5 观测与指标
+- 任务耗时、失败率
+- 每次增量影响的 chunk 数
+- 索引版本与更新时间
