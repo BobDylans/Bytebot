@@ -78,3 +78,14 @@
 - 小样本评测集 + 真实回归集
 - 指标统计与报告
 - 版本对比与回归基线
+## 6. M1 任务执行步骤（Spring Boot）
+
+1. 初始化 Spring Boot 项目与基础配置（端口、日志、配置文件），搭建模块骨架与包结构。
+2. 数据层：建 Postgres 连接与 `documents/chunks/chunk_embeddings/chunk_fts` 表，完成 `pgvector` 与 FTS 索引初始化脚本。
+3. 导入层：实现目录扫描、类型白名单、解析器接口；支持 PDF/MD/TXT/DOCX；对图像型 PDF 走 OCR；输出统一文档/段落结构。
+4. 切分与索引：按“段落优先 + 长段切分”生成 chunk，计算 hash，写入 `chunks`、向量与 FTS；记录导入统计。
+5. 检索层：实现向量召回与 FTS 召回；做线性融合与去重；输出 TopN 候选。
+6. 生成层：接入外部 LLM API，拼接上下文，生成回答与简洁引用。
+7. API 层：实现 `/v1/documents:import`、`/v1/query`、`/v1/query:stream`、索引状态接口；返回统一错误码与 trace_id。
+8. UI：最小查询页（输入/输出/引用），支持 SSE 流式显示。
+9. 验收：跑小样本评测，确认闭环可跑与引用可用。
