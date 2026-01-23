@@ -333,3 +333,30 @@
 ### 13.4 失败与降级
 - LLM 失败时可返回“仅检索结果 + 引用”
 - 错误信息标准化，避免影响上层调用
+## 14. 错误码与异常处理规范
+
+### 14.1 结构
+- HTTP 状态码 + 业务错误码
+- 错误响应统一结构：
+```json
+{
+  "error": {
+    "code": "E_DOC_PARSE_FAILED",
+    "message": "Document parse failed",
+    "trace_id": "tr_abc"
+  }
+}
+```
+
+### 14.2 常见错误码（示例）
+- `E_DOC_PARSE_FAILED`：文档解析失败
+- `E_IMPORT_PATH_INVALID`：导入路径无效
+- `E_INDEX_BUILD_FAILED`：索引构建失败
+- `E_QUERY_INVALID`：查询参数错误
+- `E_LLM_TIMEOUT`：LLM 超时
+- `E_LLM_UNAVAILABLE`：LLM 服务不可用
+
+### 14.3 处理原则
+- 所有错误必须返回 `trace_id`
+- 对客户端可修复错误给出明确 message
+- 服务器内部错误不暴露细节
