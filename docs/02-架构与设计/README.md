@@ -63,3 +63,53 @@
 3. 关键词向量写入 `tsvector` 字段
 4. 查询时：keyword FTS 召回 + vector 相似度召回
 5. 结果合并（score 融合）→ LLM 生成 → 组装引用
+## 7. 数据表设计（推荐方案 A）
+
+### 7.1 表结构概要
+- `documents`：文档级元数据与版本
+- `chunks`：文本切片与位置信息
+- `chunk_embeddings`：向量数据（与文本解耦）
+- `chunk_fts`：全文检索索引数据
+
+### 7.2 字段建议（草案）
+
+**documents**
+- `id` (PK)
+- `source` / `title` / `mime_type`
+- `version` / `checksum`
+- `tenant_id`
+- `created_at` / `updated_at`
+
+**chunks**
+- `id` (PK)
+- `document_id` (FK)
+- `chunk_index`
+- `text`
+- `start_offset` / `end_offset`
+- `page`
+- `hash`
+- `metadata` (jsonb)
+
+**chunk_embeddings**
+- `chunk_id` (PK/FK)
+- `embedding` (vector)
+- `model_id`
+- `dim`
+- `created_at`
+
+**chunk_fts**
+- `chunk_id` (PK/FK)
+- `tsv` (tsvector)
+
+### 7.3 索引建议
+- `chunk_fts.tsv` 建 GIN 索引
+- `chunk_embeddings.embedding` 建向量索引（pgvector）
+- `chunks.document_id` 建 BTREE 索引
+
+### 7.4 查询与增量
+- 查询时：FTS 召回 + 向量召回并行，再融合评分
+- 增量：通过 `documents.version` + `chunks.hash` 判断变更，按 chunk 更新向量与 FTS
+
+### 7.5 选择理由
+- 内容 / 向量 / FTS 解耦，便于扩展与重建索引
+- 在不引入 ES 的前提下，支持 MVP 的混合检索闭环
