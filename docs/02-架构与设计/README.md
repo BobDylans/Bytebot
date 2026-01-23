@@ -463,3 +463,21 @@ CREATE INDEX IF NOT EXISTS idx_chunk_fts_tsv ON chunk_fts USING GIN(tsv);
 -- 向量索引示例（根据 pgvector 版本选择）
 -- CREATE INDEX idx_chunk_embeddings_vec ON chunk_embeddings USING ivfflat (embedding vector_cosine_ops);
 ```
+## 19. OCR 方案与限制（外部 API）
+
+### 19.1 方案选择
+- 使用外部 OCR API 处理图像型 PDF
+- 优先保证接入简单与稳定性
+
+### 19.2 调用策略
+- 仅在检测不到文本层时触发 OCR
+- 按页拆分调用，支持并行但限制并发
+- 超时与重试策略明确
+
+### 19.3 成本与性能
+- OCR 成本按页计费，需记录页数
+- OCR 结果缓存，避免重复调用
+
+### 19.4 失败处理
+- OCR 失败标记为 failed，不阻断导入任务
+- 在报告中显示 OCR 失败原因与文件清单
